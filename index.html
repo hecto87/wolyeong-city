@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WOLYEONG_OS v2.5.0</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Noto+Serif+KR:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --os-bg: #1e2127;
+            --os-surface: #282c34;
+            --os-accent: #ff4d4d;
+            --os-text: #e8e8e8;
+            --os-dim: #9da5b4;
+            --os-border: #3e4451;
+        }
+
+        body {
+            font-family: 'Fira Code', 'Noto Serif KR', monospace;
+            background-color: var(--os-bg);
+            color: var(--os-text);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            margin: 0;
+        }
+
+        body::before {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(255, 255, 255, 0.01) 50%, rgba(0, 0, 0, 0.05) 50%);
+            z-index: 100;
+            background-size: 100% 4px;
+            pointer-events: none;
+        }
+
+        .os-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            border: 4px solid var(--os-border);
+            position: relative;
+        }
+
+        .os-topbar {
+            height: 36px;
+            background: #21252b;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 15px;
+            font-size: 13px;
+            border-bottom: 2px solid var(--os-border);
+        }
+
+        .window-controls { display: flex; gap: 8px; }
+        .dot { width: 12px; height: 12px; border-radius: 50%; }
+        .dot-red { background: #ff5f56; }
+        .dot-yellow { background: #ffbd2e; }
+        .dot-green { background: #27c93f; }
+
+        .workspace {
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            flex: 1;
+            gap: 2px;
+            background: var(--os-border);
+            overflow: hidden;
+        }
+
+        @media (max-width: 1024px) {
+            .workspace { grid-template-columns: 1fr; }
+            .sidebar { display: none; }
+        }
+
+        .viewport {
+            background: #181a1f;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar {
+            background: var(--os-surface);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        .map-grid {
+            position: relative;
+            flex: 1;
+            background-image: 
+                url('월영시 전도.JPG'),
+                radial-gradient(circle at 50% 50%, #2c313a 0%, #181a1f 100%);
+            background-size: cover;
+            background-position: center;
+            overflow: hidden;
+        }
+
+        .district-node {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #fff;
+            font-size: 11px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            z-index: 5;
+        }
+
+        .district-node:hover {
+            background: rgba(255, 77, 77, 0.5);
+            border-color: var(--os-accent);
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(255, 77, 77, 0.4);
+            z-index: 10;
+        }
+
+        .district-node.active {
+            background: var(--os-accent);
+            border-color: #fff;
+            box-shadow: 0 0 15px var(--os-accent);
+        }
+
+        .terminal-header {
+            background: #21252b;
+            padding: 8px 15px;
+            border-bottom: 1px solid var(--os-border);
+            display: flex;
+            align-items: center;
+            font-size: 12px;
+            color: var(--os-dim);
+        }
+
+        .log-entry {
+            border: 1px solid transparent;
+            padding: 12px;
+            font-size: 13px;
+            transition: all 0.2s;
+            position: relative;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 4px;
+        }
+
+        .log-entry:hover { 
+            background: rgba(255, 255, 255, 0.07); 
+            border-color: rgba(255, 77, 77, 0.3);
+        }
+
+        #bootOverlay {
+            position: absolute;
+            inset: 0;
+            background: #181a1f;
+            z-index: 1000;
+            padding: 40px;
+            font-size: 14px;
+            color: #98c379;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .description-box {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 4px;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-left: 4px solid var(--os-accent);
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .delete-btn {
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .log-entry:hover .delete-btn {
+            opacity: 1;
+        }
+
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #3e4451; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--os-accent); }
+    </style>
+</head>
+<body>
+
+    <div id="bootOverlay">
+        <div id="bootText" class="font-mono"></div>
+    </div>
+
+    <div class="os-container">
+        <div class="os-topbar">
+            <div class="flex items-center gap-4">
+                <div class="window-controls">
+                    <div class="dot dot-red"></div>
+                    <div class="dot dot-yellow"></div>
+                    <div class="dot dot-green"></div>
+                </div>
+                <span class="font-bold text-zinc-500">WOLYEONG_OS_v2.5.0</span>
+            </div>
+            <div class="flex items-center gap-6 text-zinc-500">
+                <span id="os-clock" class="font-mono">00:00:00</span>
+                <span class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span> SYSTEM_LIVE</span>
+            </div>
+        </div>
+
+        <div class="workspace">
+            <div class="viewport">
+                <div class="terminal-header font-mono">
+                    <span class="mr-2">📁</span> PATH: /root/map/wolyeong_grid.exe
+                </div>
+                
+                <div class="map-grid" id="cityMap">
+                    <div class="district-node w-24 h-12 top-[10%] left-[5%]" onclick="selectDistrict('신터널')">신터널</div>
+                    <div class="district-node w-32 h-16 top-[5%] left-[40%]" onclick="selectDistrict('묘지지대')">묘지지대</div>
+                    <div class="district-node w-32 h-20 top-[25%] left-[10%]" onclick="selectDistrict('광전구')">광전구</div>
+                    <div class="district-node w-28 h-28 top-[30%] left-[45%] rounded-full" onclick="selectDistrict('중앙광장')">중앙광장</div>
+                    <div class="district-node w-24 h-16 top-[15%] right-[20%]" onclick="selectDistrict('공원')">공원</div>
+                    <div class="district-node w-20 h-32 top-[35%] right-[5%]" onclick="selectDistrict('저수지')">저수지</div>
+                    <div class="district-node w-32 h-24 bottom-[15%] right-[10%]" onclick="selectDistrict('망천동')">망천동</div>
+                    <div class="district-node w-32 h-20 bottom-[30%] left-[40%]" onclick="selectDistrict('적월구')">적월구</div>
+                    <div class="district-node w-28 h-28 bottom-[10%] left-[10%]" onclick="selectDistrict('연화리')">연화리</div>
+                    <div class="district-node w-48 h-16 bottom-[5%] left-[35%]" onclick="selectDistrict('초생동')">초생동</div>
+                </div>
+
+                <div class="bg-[#111] p-4 border-t border-red-900/50">
+                    <div id="dynamicAlert" class="flex items-center gap-4">
+                        <div class="bg-red-900 text-red-200 px-2 py-0.5 text-[10px] font-bold border border-red-500">ALERT</div>
+                        <div>
+                            <p id="alertTitle" class="text-xs font-bold text-red-500 uppercase tracking-tighter"></p>
+                            <p id="alertContent" class="text-[11px] text-zinc-500"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sidebar">
+                <div class="terminal-header font-mono">
+                    <span class="mr-2">📑</span> PATH: /root/logs/district_db.sys
+                </div>
+
+                <div id="logContent" class="p-6 flex-1 flex flex-col">
+                    <div id="defaultMsg" class="my-auto text-center opacity-40">
+                        <p class="text-xs font-mono">SELECT DISTRICT TO ACCESS DATA...</p>
+                    </div>
+
+                    <div id="districtContent" class="hidden h-full flex flex-col">
+                        <div class="flex justify-between items-start mb-6">
+                            <div>
+                                <h3 id="districtTitle" class="text-2xl font-bold text-white"></h3>
+                                <p id="districtTag" class="text-[10px] text-red-500 font-mono mt-1"></p>
+                            </div>
+                            <button onclick="closeDistrict()" class="text-[10px] bg-zinc-800 px-2 py-1 rounded hover:bg-zinc-700">ESC</button>
+                        </div>
+
+                        <div class="description-box" id="districtFullDesc"></div>
+
+                        <div class="text-[10px] font-bold text-zinc-600 mb-2 uppercase tracking-widest border-b border-zinc-800 pb-1">Archive Logs</div>
+                        <div id="spotList" class="space-y-2 overflow-y-auto flex-1 pr-2 mb-4"></div>
+
+                        <div class="pt-4 border-t border-zinc-800">
+                            <div class="space-y-2">
+                                <div class="grid grid-cols-2 gap-2">
+                                    <input id="newSpotAuthor" type="text" placeholder="OPERATOR_ID" class="bg-black/30 border border-zinc-800 p-2 text-xs outline-none focus:border-red-500 text-white">
+                                    <input id="newSpotName" type="text" placeholder="LOG_TITLE" class="bg-black/30 border border-zinc-800 p-2 text-xs outline-none focus:border-red-500 text-white">
+                                </div>
+                                <textarea id="newSpotStory" rows="2" placeholder="DESCRIPTION_RAW..." class="w-full bg-black/30 border border-zinc-800 p-2 text-xs outline-none focus:border-red-500 text-white"></textarea>
+                                <button onclick="addStory()" class="w-full bg-red-900 text-red-100 py-2 text-xs font-bold hover:bg-red-800 transition">COMMIT_LOG</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal -->
+    <div id="storyModal" class="fixed inset-0 bg-black/90 hidden items-center justify-center p-4 z-[200]" onclick="closeModal(event)">
+        <div class="bg-[#1c1f24] w-full max-w-lg border border-zinc-700 shadow-2xl rounded" onclick="event.stopPropagation()">
+            <div class="bg-[#21252b] px-4 py-2 flex justify-between items-center text-[10px] border-b border-zinc-700">
+                <span class="text-zinc-500 font-mono">LOG_VIEWER v1.0</span>
+                <button onclick="closeModal()" class="text-zinc-500 hover:text-white">[X]</button>
+            </div>
+            <div class="p-8">
+                <h2 id="modalTitle" class="text-2xl font-bold text-white mb-1"></h2>
+                <p id="modalAuthor" class="text-xs text-red-500 font-mono mb-6 uppercase"></p>
+                <div id="modalContent" class="text-zinc-300 text-sm leading-relaxed font-serif py-4 border-t border-zinc-800 whitespace-pre-line"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const cityAlerts = [
+            { level: 'danger', title: 'SYSTEM_CRITICAL: 주파수 침식', content: '신터널 내 미식별 음성 신호 강도 94% 도달. 진입 시 통신 차단 권고.' },
+            { level: 'warning', title: 'OS_WARNING: 안개 필터 오류', content: '연화리 구역 시각 데이터 오염 발생. 실시간 렌더링 불가능.' },
+            { level: 'danger', title: 'THREAT_DETECTED: 비정상 행동', content: '중앙광장 오벨리스크 그림자 주변에서 위상 불일치 개체 감지.' },
+            { level: 'danger', title: 'SECURITY_BREACH: 미인가 접근', content: '망천동 지하 통신망에 알 수 없는 코드 삽입됨. 데이터 오염 주의.' },
+            { level: 'danger', title: 'SECURITY_BREACH: 미인가 접근', content: '연화리 구역 미인가 생물 발견. 접근 절대 금지.' }
+        ];
+
+        const initialData = {
+            '신터널': [{ id: 10, title: '끊기지 않는 라디오', content: '터널에 진입하면 30년 전 뉴스 속보가 반복해서 흘러나옵니다.', author: '운전자 K' }],
+            '광전구': [{ id: 11, title: '로열 아파트 수칙', content: '이곳의 지하 주차장은 5층까지뿐입니다. 6층으로 가는 길을 보게 되면 즉시 차를 돌리십시오.', author: '경비원' }],
+            '중앙광장': [{ id: 12, title: '오벨리스크의 그림자', content: '오벨리스크 그림자를 밟은 사람은 자신의 그림자를 잃어버립니다.', author: '광장 청소부' }],
+            '저수지': [{ id: 15, title: '물밑의 불빛', content: '깊은 밤 저수지 밑바닥에서 거대한 마을의 불빛이 일렁이는 것이 목격됩니다.', author: '낚시꾼' }],
+            '망천동': [{ id: 1, title: '에덴 아파트', content: '101호 문 뒤에서 누군가 흐느끼는 소리가 들리지만, 그곳은 20년째 비어있습니다.', author: '가스검침원' }],
+            '연화리': [{ id: 4, title: '웃고 있는 나무', content: '안개가 짙은 날, 나무 껍질이 사람의 웃는 얼굴로 변하며 속삭입니다.', author: '민속학자' }]
+        };
+
+        const districtDescriptions = {
+            '신터널': '외부 세계와 연결된 유일한 통로. GPS 작동 불가.',
+            '광전구': '완공 직후 낡아버린 기묘한 신도시 구역.',
+            '중앙광장': '도시의 모든 그림자를 빨아들이는 오벨리스크가 있는 곳.',
+            '공원': '밤마다 식물들이 기괴한 형상으로 변이하는 녹지.',
+            '묘지지대': '비석의 위치가 매일 바뀌는 오래된 공동묘지.',
+            '저수지': '수심을 알 수 없는 심연. 물밑에 무언가 존재함.',
+            '망천동': '시공간이 뒤틀린 구시가지 골목길.',
+            '적월구': '붉은 등불을 켜는 기묘한 의식의 주택 단지.',
+            '연화리': '사람의 말을 모방하는 나무들이 있는 숲.',
+            '초생동': '실체가 없는 소음과 진동만 생산하는 공장 지대.'
+        };
+
+        const districtTags = {
+            '신터널': 'PORTAL_NODE_01', '광전구': 'URBAN_DECAY', '중앙광장': 'VOID_ORIGIN',
+            '공원': 'MUTATED_FLORA', '묘지지대': 'ANCESTRAL_LOGS', '저수지': 'ABYSSAL_RESERVOIR',
+            '망천동': 'CHRONO_LOCK', '적월구': 'RITUAL_DIST', '연화리': 'ECHO_WOODS',
+            '초생동': 'KINETIC_IND'
+        };
+
+        let cityData = JSON.parse(localStorage.getItem('wolyeongData_v3')) || initialData;
+        let currentDistrict = '';
+
+        setInterval(() => {
+            const now = new Date();
+            document.getElementById('os-clock').innerText = now.toTimeString().split(' ')[0];
+        }, 1000);
+
+        async function bootSystem() {
+            const lines = ["> BOOTING...", "> LOADING GRID ASSETS...", "> DECODING ENCRYPTED_LOGS...", "> WOLYEONG_OS READY."];
+            const bootText = document.getElementById('bootText');
+            for (let line of lines) {
+                const div = document.createElement('div');
+                div.innerText = line;
+                bootText.appendChild(div);
+                await new Promise(r => setTimeout(r, 200));
+            }
+            setTimeout(() => document.getElementById('bootOverlay').style.display = 'none', 500);
+            setRandomAlert();
+        }
+
+        function setRandomAlert() {
+            const alert = cityAlerts[Math.floor(Math.random() * cityAlerts.length)];
+            document.getElementById('alertTitle').innerText = alert.title;
+            document.getElementById('alertContent').innerText = alert.content;
+        }
+
+        function selectDistrict(name) {
+            currentDistrict = name;
+            document.querySelectorAll('.district-node').forEach(n => n.classList.remove('active'));
+            const target = Array.from(document.querySelectorAll('.district-node')).find(node => node.innerText === name);
+            if (target) target.classList.add('active');
+
+            document.getElementById('defaultMsg').classList.add('hidden');
+            document.getElementById('districtContent').classList.remove('hidden');
+            document.getElementById('districtTitle').innerText = name;
+            document.getElementById('districtTag').innerText = districtTags[name] || 'UNKNOWN_SECTOR';
+            document.getElementById('districtFullDesc').innerText = districtDescriptions[name] || '';
+            renderSpots();
+        }
+
+        function closeDistrict() {
+            document.getElementById('defaultMsg').classList.remove('hidden');
+            document.getElementById('districtContent').classList.add('hidden');
+            document.querySelectorAll('.district-node').forEach(n => n.classList.remove('active'));
+            currentDistrict = '';
+        }
+
+        function renderSpots() {
+            const list = document.getElementById('spotList');
+            list.innerHTML = '';
+            const spots = cityData[currentDistrict] || [];
+            
+            if (spots.length === 0) {
+                list.innerHTML = '<div class="text-[10px] text-zinc-600 text-center py-4">NO_LOGS_FOUND</div>';
+                return;
+            }
+
+            spots.forEach((spot, index) => {
+                const div = document.createElement('div');
+                div.className = 'log-entry cursor-pointer group flex justify-between items-start';
+                div.onclick = () => openModal(spot);
+                div.innerHTML = `
+                    <div class="flex-1">
+                        <div class="text-[10px] text-red-500 font-mono mb-1">REF: ${spot.id % 10000}</div>
+                        <div class="text-white font-bold text-sm">${spot.title}</div>
+                        <div class="text-[10px] text-zinc-500 font-mono mt-1">BY: ${spot.author}</div>
+                    </div>
+                    <button onclick="deleteStory(event, ${index})" class="delete-btn text-[10px] bg-red-900/30 text-red-500 px-2 py-1 rounded hover:bg-red-500 hover:text-white transition-all font-bold">DEL</button>
+                `;
+                list.appendChild(div);
+            });
+        }
+
+        function addStory() {
+            const author = document.getElementById('newSpotAuthor').value || 'GUEST';
+            const title = document.getElementById('newSpotName').value;
+            const content = document.getElementById('newSpotStory').value;
+            if (!title || !content || !currentDistrict) return;
+
+            const newRecord = { id: Date.now(), title, content, author };
+            if (!cityData[currentDistrict]) cityData[currentDistrict] = [];
+            cityData[currentDistrict].push(newRecord);
+            saveAndRefresh();
+            
+            document.getElementById('newSpotName').value = '';
+            document.getElementById('newSpotStory').value = '';
+        }
+
+        function deleteStory(event, index) {
+            event.stopPropagation(); // 모달 열림 방지
+            if (!confirm("해당 기록을 영구적으로 삭제하시겠습니까?")) return;
+            
+            cityData[currentDistrict].splice(index, 1);
+            saveAndRefresh();
+        }
+
+        function saveAndRefresh() {
+            localStorage.setItem('wolyeongData_v3', JSON.stringify(cityData));
+            renderSpots();
+        }
+
+        function openModal(spot) {
+            document.getElementById('modalTitle').innerText = spot.title;
+            document.getElementById('modalAuthor').innerText = `FILED_BY: ${spot.author}`;
+            document.getElementById('modalContent').innerText = spot.content;
+            document.getElementById('storyModal').classList.remove('hidden');
+            document.getElementById('storyModal').classList.add('flex');
+        }
+
+        function closeModal(event) {
+            document.getElementById('storyModal').classList.add('hidden');
+            document.getElementById('storyModal').classList.remove('flex');
+        }
+
+        window.onload = bootSystem;
+    </script>
+</body>
+</html>
