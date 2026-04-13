@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WOLYEONG_OS v2.5.0</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Noto+Serif+KR:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            /* 가독성을 위해 배경색을 조금 더 밝게, 대비를 높게 조정 */
+            --os-bg: #1e2127;
+            --os-surface: #282c34;
+            --os-accent: #ff4d4d;
+            --os-text: #e8e8e8;
+            --os-dim: #9da5b4;
+            --os-border: #3e4451;
+        }
+
+        body {
+            font-family: 'Fira Code', 'Noto Serif KR', monospace;
+            background-color: var(--os-bg);
+            color: var(--os-text);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* 가독성을 해치지 않는 수준으로 스캔라인 효과 완화 */
+        body::before {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(255, 255, 255, 0.01) 50%, rgba(0, 0, 0, 0.05) 50%);
+            z-index: 100;
+            background-size: 100% 4px;
+            pointer-events: none;
+        }
+
+        .os-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            border: 4px solid var(--os-border);
+            position: relative;
+        }
+
+        /* 상단 바 배경색 조정 */
+        .os-topbar {
+            height: 36px;
+            background: #21252b;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 15px;
+            font-size: 13px;
+            border-bottom: 2px solid var(--os-border);
+        }
+
+        .window-controls { display: flex; gap: 8px; }
+        .dot { width: 12px; height: 12px; border-radius: 50%; }
+        .dot-red { background: #ff5f56; }
+        .dot-yellow { background: #ffbd2e; }
+        .dot-green { background: #27c93f; }
+
+        /* 워크스페이스 레이아웃 */
+        .workspace {
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            flex: 1;
+            gap: 2px;
+            background: var(--os-border);
+            overflow: hidden;
+        }
+
+        .viewport {
+            background: #181a1f;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar {
+            background: var(--os-surface);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        /* 지도 스타일링 - 가독성 향상 */
+        .map-grid {
+            position: relative;
+            flex: 1;
+            background-image: 
+                radial-gradient(circle at 50% 50%, #2c313a 0%, #181a1f 100%),
+                linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+            background-size: 100% 100%, 50px 50px, 50px 50px;
+            overflow: hidden;
+        }
+
+        .district-node {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            color: #abb2bf;
+            font-size: 12px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+
+        .district-node:hover {
+            background: rgba(255, 77, 77, 0.2);
+            border-color: var(--os-accent);
+            color: #fff;
+            transform: translateY(-2px);
+            box-shadow: 0 0 20px rgba(255, 77, 77, 0.5);
+            z-index: 10;
+        }
+
+        .district-node.active {
+            background: var(--os-accent);
+            border-color: #fff;
+            color: #fff;
+        }
+
+        /* 터미널 및 로그 스타일 */
+        .terminal-header {
+            background: #21252b;
+            padding: 8px 15px;
+            border-bottom: 1px solid var(--os-border);
+            display: flex;
+            align-items: center;
+            font-size: 12px;
+            color: var(--os-dim);
+            font-weight: bold;
+        }
+
+        .log-entry {
+            border-bottom: 1px solid var(--os-border);
+            padding: 15px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: background 0.2s;
+            background: rgba(255,255,255,0.02);
+        }
+
+        .log-entry:hover { background: rgba(255,255,255,0.08); }
+
+        /* 부팅 오버레이 */
+        #bootOverlay {
+            position: absolute;
+            inset: 0;
+            background: #181a1f;
+            z-index: 1000;
+            padding: 40px;
+            font-size: 15px;
+            color: #98c379;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .description-box {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 20px;
+            border-left: 4px solid var(--os-accent);
+        }
+
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: var(--os-bg); }
+        ::-webkit-scrollbar-thumb { background: #4b5263; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #5c6370; }
+    </style>
+</head>
+<body>
+
+    <!-- Boot Sequence Display -->
+    <div id="bootOverlay">
+        <div id="bootText"></div>
+    </div>
+
+    <div class="os-container">
+        <!-- System Top Bar -->
+        <div class="os-topbar">
+            <div class="flex items-center gap-4">
+                <div class="window-controls">
+                    <div class="dot dot-red"></div>
+                    <div class="dot dot-yellow"></div>
+                    <div class="dot dot-green"></div>
+                </div>
+                <span class="font-bold text-zinc-400">WOLYEONG_OS_v2.5.0</span>
+            </div>
+            <div class="flex items-center gap-6 text-zinc-400">
+                <span id="os-clock" class="font-mono">00:00:00</span>
+                <span class="text-[10px] px-2 py-0.5 border border-zinc-700 rounded">SYSTEM_STABLE</span>
+                <span class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span> LIVE_FEED</span>
+            </div>
+        </div>
+
+        <!-- Main Interface -->
+        <div class="workspace">
+            <!-- Left: Map Viewport -->
+            <div class="viewport">
+                <div class="terminal-header">
+                    <span class="mr-2">📁</span> PATH: /root/city_grid/comprehensive_map.exe
+                </div>
+                
+                <div class="map-grid" id="cityMap">
+                    <!-- Nodes -->
+                    <div class="district-node w-32 h-16 top-[10%] left-[5%]" onclick="selectDistrict('신터널')"><span>[신터널]</span></div>
+                    <div class="district-node w-48 h-20 top-[5%] left-[40%]" onclick="selectDistrict('묘지지대')"><span>묘지지대</span></div>
+                    <div class="district-node w-40 h-32 top-[25%] left-[10%]" onclick="selectDistrict('광전구')"><span>광전구 (신도시)</span></div>
+                    <div class="district-node w-36 h-36 top-[30%] left-[45%] rounded-full border-dashed" onclick="selectDistrict('중앙광장')"><span>중앙광장</span></div>
+                    <div class="district-node w-32 h-24 top-[15%] right-[20%]" onclick="selectDistrict('공원')"><span>공원</span></div>
+                    <div class="district-node w-24 h-40 top-[35%] right-[5%] border-blue-900/50" onclick="selectDistrict('저수지')"><span class="text-blue-400">저수지</span></div>
+                    <div class="district-node w-44 h-32 bottom-[15%] right-[10%]" onclick="selectDistrict('망천동')"><span>망천동 (구시가지)</span></div>
+                    <div class="district-node w-40 h-28 bottom-[30%] left-[40%]" onclick="selectDistrict('적월구')"><span>적월구</span></div>
+                    <div class="district-node w-36 h-40 bottom-[10%] left-[10%] border-green-900/50" onclick="selectDistrict('연화리')"><span class="text-green-500">연화리</span></div>
+                    <div class="district-node w-56 h-24 bottom-[5%] left-[35%]" onclick="selectDistrict('초생동')"><span>초생동 (산업단지)</span></div>
+                </div>
+
+                <!-- Alert Footer - High Contrast -->
+                <div class="bg-[#111] p-5 border-t-2 border-red-500/50">
+                    <div id="dynamicAlert" class="flex items-center gap-6">
+                        <div class="bg-red-600 text-white px-3 py-1 text-sm font-bold animate-pulse">CRITICAL_ALERT</div>
+                        <div class="flex-1">
+                            <p id="alertTitle" class="text-sm font-bold text-red-400 mb-0.5 tracking-tight"></p>
+                            <p id="alertContent" class="text-xs text-zinc-300"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right: Database/Log Panel -->
+            <div class="sidebar">
+                <div class="terminal-header">
+                    <span class="mr-2">📑</span> PATH: /root/logs/district_db.sys
+                </div>
+
+                <div id="logContent" class="p-6 flex-1 flex flex-col">
+                    <div id="defaultMsg" class="my-auto text-center">
+                        <div class="text-5xl mb-6 opacity-20">📡</div>
+                        <h2 class="text-2xl font-bold text-zinc-300 mb-4">탐사 데이터 대기 중</h2>
+                        <p class="text-sm text-zinc-500 leading-relaxed max-w-[250px] mx-auto">지도에서 구역 노드를 선택하여 월영시의 잠재된 기록을 복구하십시오.</p>
+                    </div>
+
+                    <div id="districtContent" class="hidden h-full flex flex-col">
+                        <div class="flex justify-between items-start mb-6">
+                            <div>
+                                <h3 id="districtTitle" class="text-3xl font-bold text-white"></h3>
+                                <div class="flex items-center gap-2 mt-2">
+                                    <span class="w-2 h-2 rounded-full bg-green-500"></span>
+                                    <span id="districtTag" class="text-[11px] text-zinc-400 font-mono tracking-widest"></span>
+                                </div>
+                            </div>
+                            <button onclick="closeDistrict()" class="bg-zinc-800 hover:bg-zinc-700 px-3 py-1 rounded text-[10px] transition">ESC_BACK</button>
+                        </div>
+
+                        <!-- 구역 상세 설명 박스 -->
+                        <div class="description-box">
+                            <p id="districtFullDesc" class="text-sm text-zinc-300 leading-relaxed font-medium"></p>
+                        </div>
+
+                        <div class="text-[11px] font-bold text-zinc-500 mb-3 uppercase tracking-widest border-b border-zinc-800 pb-1">Active Exploration Logs</div>
+                        <div id="spotList" class="space-y-3 mb-8 overflow-y-auto pr-2"></div>
+
+                        <!-- Add Record Form -->
+                        <div class="mt-auto pt-6 border-t border-zinc-800">
+                            <p class="text-[10px] text-red-400 mb-4 uppercase font-bold tracking-tighter flex items-center gap-2">
+                                <span class="w-1.5 h-1.5 bg-red-400 rounded-full"></span> 
+                                NEW_RECORD_ENTRY_POINT
+                            </p>
+                            <div class="space-y-3">
+                                <div class="grid grid-cols-2 gap-2">
+                                    <input id="newSpotAuthor" type="text" placeholder="AUTHOR_ID" class="bg-black/50 border border-zinc-700 p-2.5 text-xs focus:border-red-500 outline-none rounded text-white">
+                                    <input id="newSpotName" type="text" placeholder="CASE_ID" class="bg-black/50 border border-zinc-700 p-2.5 text-xs focus:border-red-500 outline-none rounded text-white">
+                                </div>
+                                <textarea id="newSpotStory" rows="3" placeholder="ENTER_CONTENT_RAW..." class="w-full bg-black/50 border border-zinc-700 p-2.5 text-xs focus:border-red-500 outline-none rounded text-white"></textarea>
+                                <button onclick="addStory()" class="w-full bg-red-600 hover:bg-red-500 text-white py-3 text-xs font-bold rounded shadow-lg transition-all active:scale-95">COMMIT_TO_DATABASE</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Record Detail -->
+    <div id="storyModal" class="fixed inset-0 bg-black/95 hidden items-center justify-center p-4 z-[200]">
+        <div class="bg-[#1c1f24] w-full max-w-xl border-2 border-zinc-700 shadow-2xl overflow-hidden rounded-lg">
+            <div class="bg-[#21252b] px-5 py-3 flex justify-between items-center text-[11px] border-b border-zinc-700">
+                <span class="text-zinc-400 font-mono">FILE_ACCESS: <span id="modalFileId" class="text-red-400"></span></span>
+                <button onclick="closeModal()" class="text-zinc-500 hover:text-white bg-zinc-800 px-2 py-1 rounded">CLOSE [X]</button>
+            </div>
+            <div class="p-10">
+                <div class="flex flex-col mb-8 border-b border-zinc-800 pb-6">
+                    <h2 id="modalTitle" class="text-3xl font-bold text-white mb-2"></h2>
+                    <div class="flex items-center justify-between">
+                        <span id="modalAuthor" class="text-xs text-red-500 font-bold font-mono"></span>
+                        <span class="text-[10px] text-zinc-600 uppercase">Status: Unresolved</span>
+                    </div>
+                </div>
+                <div id="modalContent" class="text-zinc-300 text-base leading-relaxed mb-10 font-serif min-h-[150px]"></div>
+                <div class="flex justify-center border-t border-zinc-800 pt-6">
+                    <div class="text-[10px] text-zinc-600 font-mono flex items-center gap-4">
+                        <span>CONFIDENTIAL_DOCUMENT</span>
+                        <span>|</span>
+                        <span>PROPERTY_OF_WOLYEONG_CITY</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const cityAlerts = [
+            { level: 'danger', title: 'SYSTEM_CRITICAL: 주파수 침식', content: '신터널 내 미식별 음성 신호 강도 94% 도달. 진입 즉시 통신 차단 권고.' },
+            { level: 'warning', title: 'OS_WARNING: 안개 필터 오류', content: '연화리 구역 시각 데이터 오염 발생. 실시간 형체 렌더링 불가능.' },
+            { level: 'danger', title: 'THREAT_DETECTED: 비정상 행동', content: '중앙광장 오벨리스크 그림자 주변에서 12건의 위상 불일치 개체 감지됨.' },
+            { level: 'info', title: 'SYS_INFO: 저수지 수위 데이터 결손', content: '수면 아래 40m 지점의 센서 응답 없음. 거대 질량체 이동 감지.' },
+            { level: 'caution', title: 'OS_CAUTION: 시간 동기화 실패', content: '적월구 구역 진입 시 시스템 시계가 444분 뒤로 밀리는 현상 보고됨.' },
+            { level: 'danger', title: 'SECURITY_BREACH: 미인가 접근', content: '망천동 구시가지 지하 통신망에 알 수 없는 코드 삽입됨. 데이터 변조 주의.' }
+        ];
+
+        const initialData = {
+            '신터널': [{ id: 10, title: '끊기지 않는 라디오', content: '터널에 진입하면 라디오 주파수가 고정되며, 30년 전 뉴스 속보가 반복해서 흘러나옵니다.', author: '운전자 K' }],
+            '광전구': [{ id: 11, title: '완성되지 않는 아파트', content: '신도시 3단지 아파트는 10년째 공사 중입니다. 밤마다 인부들이 일하는 소리가 들리지만 아침이 되면 원상복구 되어있습니다.', author: '현장소장' }],
+            '중앙광장': [{ id: 12, title: '오벨리스크의 그림자', content: '오벨리스크는 항상 시청 정문을 가리키는 그림자를 만듭니다. 그 그림자를 밟은 사람은 자신의 그림자를 잃어버립니다.', author: '광장 청소부' }],
+            '공원': [{ id: 13, title: '거꾸로 피는 꽃', content: '밤의 공원에서는 낮에 볼 수 없던 푸른 꽃들이 피어납니다. 다가가면 누군가 속삭이는 소리를 냅니다.', author: '식물학자' }],
+            '묘지지대': [{ id: 14, title: '주인 없는 비석', content: '이름 없는 비석 앞에 서면 자신의 이름이 새겨진 환각을 보게 된다는 제보가 잇따르고 있습니다.', author: '장례지도사' }],
+            '저수지': [{ id: 15, title: '물밑의 불빛', content: '깊은 밤 저수지 한가운데에서 밝은 등불이 켜집니다. 마치 물속에 마을이 있는 것처럼 수많은 불빛이 일렁입니다.', author: '낚시꾼' }],
+            '망천동': [{ id: 1, title: '창문 없는 아파트', content: '101호 문 뒤에서 누군가 흐느끼는 소리가 들립니다. 그 호수는 20년 전 사고 이후 폐쇄된 곳입니다.', author: '조사관 A' }],
+            '적월구': [{ id: 16, title: '마네킹 저택', content: '저택 창가에는 항상 마네킹들이 서 있습니다. 매일 위치가 미세하게 변하며 지나가는 행인을 쳐다봅니다.', author: '배달원' }],
+            '연화리': [{ id: 4, title: '웃고 있는 나무', content: '안개가 짙은 날, 나무 껍질이 사람의 웃는 얼굴로 변합니다. 그 웃음소리를 들으면 숲을 나갈 수 없습니다.', author: '민속학자' }],
+            '초생동': [{ id: 17, title: '사택 4층의 소음', content: '비어있는 4층에서 거대한 기계 돌아가는 소리와 비명소리가 섞여 들립니다.', author: '야간경비' }]
+        };
+
+        const districtDescriptions = {
+            '신터널': '외부 세계와 월영시를 잇는 유일한 통로입니다. 터널 중간부터는 GPS가 작동하지 않으며, 알 수 없는 주파수가 차량의 오디오를 장악합니다.',
+            '광전구': '대규모 신도시 개발 구역입니다. 하지만 완공을 앞둔 아파트들이 알 수 없는 이유로 하루아침에 낡아버리는 현상이 발생하여 현재는 반쯤 버려진 상태입니다.',
+            '중앙광장': '도시의 중심부입니다. 중앙의 검은 오벨리스크는 도시의 모든 그림자를 빨아들이는 듯한 기이한 자기장을 형성하고 있습니다.',
+            '공원': '인위적으로 조성된 녹지대이나, 최근 들어 식물들의 유전적 변형이 일어나 밤마다 기괴한 형상으로 변이하는 것이 목격되고 있습니다.',
+            '묘지지대': '도시의 역사만큼 오래된 공동묘지입니다. 안개가 자욱한 날에는 비석의 위치가 바뀌거나, 새로운 비석이 갑자기 생겨나는 일이 잦습니다.',
+            '저수지': '도시의 식수원이지만 수심 측정기가 닿지 않는 거대한 심연이 존재합니다. 물밑에서 일렁이는 거대한 불빛에 대한 목격담이 끊이지 않습니다.',
+            '망천동': '도시의 가장 오래된 주택가입니다. 좁은 골목길은 시공간이 꼬여있어 한 번 잘못 들어가면 영원히 같은 자리만 맴돌게 될 수도 있습니다.',
+            '적월구': '조용한 고급 주택 단지이지만 주민들의 외부 접촉이 철저히 차단되어 있습니다. 매달 보름달이 뜨는 날이면 집집마다 붉은 등불을 켜고 기묘한 노래를 부릅니다.',
+            '연화리': '울창한 숲에 둘러싸인 마을입니다. 숲의 나무들은 사람의 말을 모방하며, 안개가 낀 날 숲에 들어간 사람은 본래의 모습과 조금 다른 무언가가 되어 돌아옵니다.',
+            '초생동': '도시 외곽의 산업 단지입니다. 밤낮없이 가동되는 공장들은 실제 제품이 아닌 거대한 소음과 기분 나쁜 진동만을 생산해내고 있습니다.'
+        };
+
+        const districtTags = {
+            '신터널': 'PORTAL_NODE_01', '광전구': 'URBAN_DECAY_ZONE', '중앙광장': 'VOID_ORIGIN',
+            '공원': 'MUTATED_FLORA', '묘지지대': 'ANCESTRAL_LOGS', '저수지': 'ABYSSAL_RESERVOIR',
+            '망천동': 'CHRONO_LOCK_AREA', '적월구': 'RITUAL_DISTRICT', '연화리': 'ECHO_WOODS',
+            '초생동': 'KINETIC_INDUSTRY'
+        };
+
+        let cityData = JSON.parse(localStorage.getItem('wolyeongData_v3')) || initialData;
+        let currentDistrict = '';
+
+        // OS Clock
+        setInterval(() => {
+            const now = new Date();
+            document.getElementById('os-clock').innerText = now.toTimeString().split(' ')[0];
+        }, 1000);
+
+        // Boot Sequence
+        const bootLines = [
+            "> INITIALIZING WOLYEONG_OS v2.5.0...",
+            "> ENHANCING VISUAL_CONTRAST...",
+            "> LOADING DISTRICT_METADATA...",
+            "> FETCHING UNRESOLVED_MYSTERIES...",
+            "> SCANNING SHADOW_FREQUENCIES...",
+            "> SUCCESS: DISPLAY BRIGHTNESS NORMALIZED.",
+            "> SYSTEM READY. ACCESS GRANTED."
+        ];
+
+        async function bootSystem() {
+            const bootText = document.getElementById('bootText');
+            for (let line of bootLines) {
+                const div = document.createElement('div');
+                div.innerText = line;
+                bootText.appendChild(div);
+                await new Promise(r => setTimeout(r, 300));
+            }
+            await new Promise(r => setTimeout(r, 600));
+            document.getElementById('bootOverlay').style.display = 'none';
+            setRandomAlert();
+        }
+
+        function setRandomAlert() {
+            const alertTitle = document.getElementById('alertTitle');
+            const alertContent = document.getElementById('alertContent');
+            const alert = cityAlerts[Math.floor(Math.random() * cityAlerts.length)];
+            alertTitle.innerText = alert.title;
+            alertContent.innerText = alert.content;
+        }
+
+        function selectDistrict(name) {
+            currentDistrict = name;
+            document.querySelectorAll('.district-node').forEach(node => {
+                node.classList.remove('active');
+                if (node.innerText.includes(name)) node.classList.add('active');
+            });
+
+            document.getElementById('defaultMsg').classList.add('hidden');
+            document.getElementById('districtContent').classList.remove('hidden');
+            document.getElementById('districtTitle').innerText = name;
+            document.getElementById('districtTag').innerText = districtTags[name];
+            document.getElementById('districtFullDesc').innerText = districtDescriptions[name];
+            
+            renderSpots();
+        }
+
+        function closeDistrict() {
+            document.getElementById('defaultMsg').classList.remove('hidden');
+            document.getElementById('districtContent').classList.add('hidden');
+            document.querySelectorAll('.district-node').forEach(n => n.classList.remove('active'));
+        }
+
+        function renderSpots() {
+            const list = document.getElementById('spotList');
+            list.innerHTML = '';
+            const spots = cityData[currentDistrict] || [];
+            
+            spots.forEach(spot => {
+                const div = document.createElement('div');
+                div.className = 'log-entry border border-zinc-700/50 rounded-lg hover:border-red-500/50 transition-colors';
+                div.onclick = () => openModal(spot);
+                div.innerHTML = `
+                    <div class="flex justify-between items-center mb-1.5">
+                        <span class="text-red-500 font-bold tracking-tighter text-[11px]">LOG_ID: ${spot.id % 10000}</span>
+                        <span class="text-[9px] bg-red-950 text-red-200 px-1.5 py-0.5 rounded font-bold">UNRESOLVED</span>
+                    </div>
+                    <div class="text-white font-bold mb-1">${spot.title}</div>
+                    <div class="text-[10px] text-zinc-400">FILED_BY: <span class="text-zinc-300 underline">${spot.author}</span></div>
+                `;
+                list.appendChild(div);
+            });
+        }
+
+        function addStory() {
+            const author = document.getElementById('newSpotAuthor').value || 'GUEST_USER';
+            const title = document.getElementById('newSpotName').value;
+            const content = document.getElementById('newSpotStory').value;
+
+            if (!title || !content) return;
+
+            const newRecord = { id: Date.now(), title, content, author };
+            if (!cityData[currentDistrict]) cityData[currentDistrict] = [];
+            cityData[currentDistrict].push(newRecord);
+            
+            localStorage.setItem('wolyeongData_v3', JSON.stringify(cityData));
+            renderSpots();
+
+            document.getElementById('newSpotAuthor').value = '';
+            document.getElementById('newSpotName').value = '';
+            document.getElementById('newSpotStory').value = '';
+        }
+
+        function openModal(spot) {
+            const modal = document.getElementById('storyModal');
+            document.getElementById('modalFileId').innerText = `WLY_DB_${spot.id}`;
+            document.getElementById('modalTitle').innerText = spot.title;
+            document.getElementById('modalAuthor').innerText = `OPERATOR_ID: ${spot.author}`;
+            document.getElementById('modalContent').innerText = spot.content;
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeModal() {
+            document.getElementById('storyModal').classList.add('hidden');
+        }
+
+        window.onload = bootSystem;
+    </script>
+</body>
+</html>
